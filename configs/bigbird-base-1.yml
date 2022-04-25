@@ -4,6 +4,7 @@ n_gpu: 1
 k_folds: 5
 num_proc: 7
 max_seq_length: 4096
+pad_multiple: 1024
 padding: no
 stride: 0
 model_name_or_path: "google/bigbird-roberta-base"

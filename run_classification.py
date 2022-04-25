@@ -157,7 +157,7 @@ def main():
 
         return metrics
 
-    data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=8)
+    data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=cfg["pad_multiple"], max_length=cfg["max_seq_length"])
 
     # Initialize our Trainer
     trainer = Trainer(

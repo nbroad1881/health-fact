@@ -24,13 +24,16 @@ class DataModule:
     def prepare_dataset(self):
 
         def tokenize(example):
-            return self.tokenizer(
+            tokenized =  self.tokenizer(
                 example["claim"],
                 example["main_text"],
                 padding=False,
                 truncation="only_second",
                 max_length=self.cfg["max_seq_length"],
             )
+            
+            tokenized["labels"] = example["label"]
+            return tokenized
 
         cols = self.raw_dataset["train"].column_names
         self.tokenized_dataset = self.raw_dataset.map(
