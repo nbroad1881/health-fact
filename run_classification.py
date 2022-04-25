@@ -23,7 +23,7 @@ import sys
 import argparse
 
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import precision_recall_fscore_support, f1_score
 
 import datasets
 import transformers
@@ -40,7 +40,7 @@ from transformers.integrations import WandbCallback
 from transformers.trainer_utils import get_last_checkpoint
 
 from data import DataModule
-from utils import set_wandb_env_vars, get_configs, NewWandbCB
+from utils import set_wandb_env_vars, get_configs, NewWandbCB, reinit_model_weights
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,8 @@ logger = logging.getLogger(__name__)
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str)
+
+    return parser
 
 
 def main():
@@ -129,6 +131,9 @@ def main():
         config=config,
     )
 
+    if cfg.get("reinit_layers"):
+        reinit_model_weights(model, cfg.get("reinit_layers"), config)
+
     # Log a few random samples from the training set:
     if training_args.do_train:
         for index in random.sample(range(len(tokenized_ds["train"])), 3):
@@ -140,14 +145,17 @@ def main():
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.argmax(preds, axis=-1)
 
-        metrics = precision_recall_fscore_support(p.label_ids, preds)
+        _, _, f1s, _ = precision_recall_fscore_support(p.label_ids, preds)
+        micro_f1 = f1_score(p.label_ids, preds, average="micro")
+        macro_f1 = f1_score(p.label_ids, preds, average="macro")
 
-        return {
-            "precision": metrics[0],
-            "recall": metrics[1],
-            "f1": metrics[2],
-            "support": metrics[3],
+        metrics = {
+            "micro_f1": micro_f1,
+            "macro_f1": macro_f1,
+            **{f"{id2labels[i]}_f1": f1s[i] for i in range(len(f1s))},
         }
+
+        return metrics
 
     data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=8)
 
