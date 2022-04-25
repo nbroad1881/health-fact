@@ -1,0 +1,4 @@
+git+https://github.com/huggingface/transformers.git
+git+https://github.com/huggingface/datasets.git
+sentencepiece
+wandb
