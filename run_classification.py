@@ -111,7 +111,7 @@ def main():
 
     data_module.prepare_dataset()
 
-    tokenized_ds = data_module.tokenized_dataset()
+    tokenized_ds = data_module.tokenized_dataset
 
     id2labels = {
         0: "false",

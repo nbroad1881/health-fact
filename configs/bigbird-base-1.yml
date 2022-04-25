@@ -53,7 +53,7 @@ training_arguments:
   gradient_accumulation_steps: 1
   gradient_checkpointing: no
   group_by_length: yes
-  learning_rate: 9e-5
+  learning_rate: 1e-5
   weight_decay: .01
 
 # schedule + steps
