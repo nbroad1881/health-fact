@@ -8,7 +8,7 @@ pad_multiple: 1024
 padding: no
 stride: 0
 model_name_or_path: "google/bigbird-roberta-base"
-reinit_layers: 1
+reinit_layers: 2
 layer_norm_eps: 1e-7
 output_dropout: 0.0
 use_8bit: no
@@ -16,6 +16,10 @@ use_layerwise_lr: no
 layer_lr_alpha: 0.8
 use_lookahead: no
 use_sift: no
+
+# bigbird
+block_size: 128
+num_random_blocks: 6
 
 # swa
 use_swa: no
@@ -41,7 +45,7 @@ training_arguments:
   overwrite_output_dir: yes
 
 # dataloader
-  dataloader_num_workers: 4
+  dataloader_num_workers: 2
   dataloader_pin_memory: yes
 
 # training
@@ -83,8 +87,8 @@ training_arguments:
   logging_nan_inf_filter: <default>
 
 # dtype
-  bf16: no
-  fp16: yes
+  bf16: yes
+  fp16: no
   fp16_opt_level: "O1"
   half_precision_backend: "auto"
   bf16_full_eval: no
