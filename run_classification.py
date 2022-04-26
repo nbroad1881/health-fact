@@ -127,8 +127,8 @@ def main():
     )
     
     config.update({
-        "block_size": cfg.get("block_size", 64)
-        "num_random_blocks": cfg.get("num_random_blocks", 3)
+        "block_size": cfg.get("block_size", 64),
+        "num_random_blocks": cfg.get("num_random_blocks", 3),
     })
 
     model = AutoModelForSequenceClassification.from_pretrained(
