@@ -131,8 +131,7 @@ def main():
         config=config,
     )
 
-    if cfg.get("reinit_layers"):
-        reinit_model_weights(model, cfg.get("reinit_layers"), config)
+    reinit_model_weights(model, cfg.get("reinit_layers", 0), config)
 
     # Log a few random samples from the training set:
     if training_args.do_train:
@@ -157,7 +156,7 @@ def main():
 
         return metrics
 
-    data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=cfg["pad_multiple"], max_length=cfg["max_seq_length"])
+    data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=cfg["pad_multiple"], max_length=cfg["max_seq_length"], truncation=True)
 
     # Initialize our Trainer
     trainer = Trainer(
@@ -190,20 +189,10 @@ def main():
         trainer.save_metrics("train", metrics)
         trainer.save_state()
 
-    # Evaluation
-    if training_args.do_eval:
-        logger.info("*** Evaluate ***")
-
-        metrics = trainer.evaluate(eval_dataset=tokenized_ds["validation"])
-        metrics["eval_samples"] = len(tokenized_ds["validation"])
-
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
-
     if training_args.do_predict:
         logger.info("*** Predict ***")
 
-        metrics = trainer.predict(eval_dataset=tokenized_ds["test"])
+        metrics = trainer.predict(tokenized_ds["test"]).metrics
         metrics["eval_samples"] = len(tokenized_ds["test"])
 
         trainer.log_metrics("test", metrics)
