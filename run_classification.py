@@ -125,6 +125,11 @@ def main():
         num_labels=len(id2labels),
         finetuning_task="text-classification",
     )
+    
+    config.update({
+        "block_size": cfg.get("block_size", 64)
+        "num_random_blocks": cfg.get("num_random_blocks", 3)
+    })
 
     model = AutoModelForSequenceClassification.from_pretrained(
         cfg["model_name_or_path"],
