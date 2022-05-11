@@ -6,3 +6,12 @@ Experiments on the [health fact dataset](https://huggingface.co/datasets/health_
 ## Experiments tracked on Weights and Biases
 
 Report here: [link](https://wandb.ai/nbroad/health-fact/reports/Health-Fact-experiments--VmlldzoxOTAwMTA3)
+
+
+## Running the script
+
+I like to use configuration files so that I am not modifying the training code at all.
+
+```sh
+python run_classification.py configs/bigbird-base-0.yml
+```
