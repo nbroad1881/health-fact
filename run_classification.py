@@ -49,6 +49,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str)
 
+    return parser
 
 def main():
 
