@@ -3,12 +3,12 @@ DEBUG: no
 n_gpu: 1
 k_folds: 5
 num_proc: 7
-max_seq_length: 4096
+max_seq_length: 2048
 pad_multiple: 1024
 padding: no
 stride: 0
 model_name_or_path: "google/bigbird-roberta-base"
-reinit_layers: 0
+reinit_layers: 1
 layer_norm_eps: 1e-7
 output_dropout: 0.0
 use_8bit: no
@@ -37,7 +37,7 @@ job_type: train
 # <default> means use default value
 training_arguments:
 # output
-  output_dir: "./"
+  output_dir: "./out"
   overwrite_output_dir: yes
 
 # dataloader
@@ -50,17 +50,17 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 4
+  per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
   gradient_checkpointing: no
   group_by_length: yes
-  learning_rate: 9e-5
+  learning_rate: 3e-6
   weight_decay: .01
 
 # schedule + steps
   num_train_epochs: 1
   lr_scheduler_type: linear
-  warmup_ratio: 0
+  warmup_ratio: 0.1
   warmup_steps: 0
   max_steps: -1
 

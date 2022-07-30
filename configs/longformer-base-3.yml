@@ -3,11 +3,11 @@ DEBUG: no
 n_gpu: 1
 k_folds: 5
 num_proc: 7
-max_seq_length: 4096
-pad_multiple: 1024
+max_seq_length: 2048
+pad_multiple: 512
 padding: no
 stride: 0
-model_name_or_path: "google/bigbird-roberta-base"
+model_name_or_path: "allenai/longformer-base-4096"
 reinit_layers: 0
 layer_norm_eps: 1e-7
 output_dropout: 0.0
@@ -28,7 +28,7 @@ project: health-fact
 entity: nbroad
 group: none
 tags:
-  - bigbird-base
+  - longformer-base
 notes: >
  
 job_type: train
@@ -37,11 +37,11 @@ job_type: train
 # <default> means use default value
 training_arguments:
 # output
-  output_dir: "./"
+  output_dir: "./longformer-base-health-fact2"
   overwrite_output_dir: yes
 
 # dataloader
-  dataloader_num_workers: 2
+  dataloader_num_workers: 4
   dataloader_pin_memory: yes
 
 # training
@@ -50,24 +50,24 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 4
+  per_device_train_batch_size: 16
   gradient_accumulation_steps: 1
   gradient_checkpointing: no
   group_by_length: yes
-  learning_rate: 9e-5
+  learning_rate: 3e-5
   weight_decay: .01
 
 # schedule + steps
-  num_train_epochs: 1
+  num_train_epochs: 3
   lr_scheduler_type: linear
-  warmup_ratio: 0
+  warmup_ratio: 0.1
   warmup_steps: 0
   max_steps: -1
 
 # optimizer
   adam_beta1: 0.9
   adam_beta2: 0.999
-  adam_epsilon: 1e-8
+  adam_epsilon: 1e-6
   max_grad_norm: 1.0
   optim: 'adamw_hf'
   adafactor: no
@@ -92,25 +92,25 @@ training_arguments:
   tf32: no
 
 # saving 
-  save_strategy: "no"
+  save_strategy: "epoch"
   save_steps: 300000
   save_total_limit: 1
   load_best_model_at_end: no
-  metric_for_best_model: "eval_f1"
+  metric_for_best_model: "eval_micro_f1"
 
 # evaluation
   do_eval: yes
   evaluation_strategy: "epoch"
   eval_steps: 20
   eval_delay: 0
-  per_device_eval_batch_size: 8
-  do_predict: no
+  per_device_eval_batch_size: 32
+  do_predict: yes
   
 # hub
-  push_to_hub: no
+  push_to_hub: yes
   hub_private_repo: yes
   hub_model_id: <default>
-  hub_strategy: "every_save"
+  hub_strategy: "end"
   hub_token: <default>
 
 # misc

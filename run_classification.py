@@ -23,7 +23,7 @@ import sys
 import argparse
 
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import precision_recall_fscore_support, f1_score
 
 import datasets
 import transformers
@@ -40,7 +40,7 @@ from transformers.integrations import WandbCallback
 from transformers.trainer_utils import get_last_checkpoint
 
 from data import DataModule
-from utils import set_wandb_env_vars, get_configs, NewWandbCB
+from utils import set_wandb_env_vars, get_configs, NewWandbCB, reinit_model_weights
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def main():
 
     data_module.prepare_dataset()
 
-    tokenized_ds = data_module.tokenized_dataset()
+    tokenized_ds = data_module.tokenized_dataset
 
     id2labels = {
         0: "false",
@@ -124,11 +124,18 @@ def main():
         num_labels=len(id2labels),
         finetuning_task="text-classification",
     )
+    
+    config.update({
+        "block_size": cfg.get("block_size", 64),
+        "num_random_blocks": cfg.get("num_random_blocks", 3),
+    })
 
     model = AutoModelForSequenceClassification.from_pretrained(
         cfg["model_name_or_path"],
         config=config,
     )
+
+    reinit_model_weights(model, cfg.get("reinit_layers", 0), config)
 
     # Log a few random samples from the training set:
     if training_args.do_train:
@@ -141,16 +148,19 @@ def main():
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.argmax(preds, axis=-1)
 
-        metrics = precision_recall_fscore_support(p.label_ids, preds)
+        _, _, f1s, _ = precision_recall_fscore_support(p.label_ids, preds)
+        micro_f1 = f1_score(p.label_ids, preds, average="micro")
+        macro_f1 = f1_score(p.label_ids, preds, average="macro")
 
-        return {
-            "precision": metrics[0],
-            "recall": metrics[1],
-            "f1": metrics[2],
-            "support": metrics[3],
+        metrics = {
+            "micro_f1": micro_f1,
+            "macro_f1": macro_f1,
+            **{f"{id2labels[i]}_f1": f1s[i] for i in range(len(f1s))},
         }
 
-    data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=8)
+        return metrics
+
+    data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=cfg["pad_multiple"])
 
     # Initialize our Trainer
     trainer = Trainer(
@@ -183,20 +193,10 @@ def main():
         trainer.save_metrics("train", metrics)
         trainer.save_state()
 
-    # Evaluation
-    if training_args.do_eval:
-        logger.info("*** Evaluate ***")
-
-        metrics = trainer.evaluate(eval_dataset=tokenized_ds["validation"])
-        metrics["eval_samples"] = len(tokenized_ds["validation"])
-
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
-
     if training_args.do_predict:
         logger.info("*** Predict ***")
 
-        metrics = trainer.predict(eval_dataset=tokenized_ds["test"])
+        metrics = trainer.predict(tokenized_ds["test"]).metrics
         metrics["eval_samples"] = len(tokenized_ds["test"])
 
         trainer.log_metrics("test", metrics)

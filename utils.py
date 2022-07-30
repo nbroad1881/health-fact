@@ -3,6 +3,7 @@ import re
 import yaml
 from pathlib import Path
 
+import torch
 from transformers.integrations import WandbCallback
 from transformers.utils import logging
 from transformers.file_utils import is_torch_tpu_available
@@ -158,3 +159,55 @@ class NewWandbCB(WandbCallback):
                     log=os.getenv("WANDB_WATCH", "gradients"),
                     log_freq=max(100, args.logging_steps),
                 )
+
+
+def reinit_model_weights(model, n_layers, config):
+
+    backbones = {
+        "big_bird": "bert",
+        "deberta-v2": "deberta",
+        "bart": "model",
+    }
+
+    backbone_name = backbones.get(config.model_type, config.model_type)
+
+    backbone = getattr(model, backbone_name)
+    if config.model_type == "bart":
+        std = config.init_std
+    else:
+        std = config.initializer_range
+
+    if n_layers > 0:
+        if config.model_type == "bart":
+            decoder_layers = backbone.decoder.layers
+            reinit_layers(decoder_layers, n_layers, std)
+        else:
+            encoder_layers = backbone.encoder.layer
+            reinit_layers(encoder_layers, n_layers, std)
+
+    if config.model_type == "bart":
+        output = model.classification_head
+    else:
+        output = model.classifier
+
+    reinit_modules([output], std)
+
+
+def reinit_layers(layers, n_layers, std):
+    for layer in layers[-n_layers:]:
+        reinit_modules(layer.modules(), std)
+
+
+def reinit_modules(modules, std, reinit_embeddings=False):
+    for module in modules:
+        if isinstance(module, torch.nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif reinit_embeddings and isinstance(module, torch.nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, torch.nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)

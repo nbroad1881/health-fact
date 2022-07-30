@@ -3,11 +3,11 @@ DEBUG: no
 n_gpu: 1
 k_folds: 5
 num_proc: 7
-max_seq_length: 4096
-pad_multiple: 1024
+max_seq_length: 512
+pad_multiple: 8
 padding: no
 stride: 0
-model_name_or_path: "google/bigbird-roberta-base"
+model_name_or_path: "microsoft/deberta-v3-base"
 reinit_layers: 0
 layer_norm_eps: 1e-7
 output_dropout: 0.0
@@ -28,7 +28,7 @@ project: health-fact
 entity: nbroad
 group: none
 tags:
-  - bigbird-base
+  - deb-v3-base
 notes: >
  
 job_type: train
@@ -37,7 +37,7 @@ job_type: train
 # <default> means use default value
 training_arguments:
 # output
-  output_dir: "./"
+  output_dir: "./out"
   overwrite_output_dir: yes
 
 # dataloader
@@ -50,11 +50,11 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 4
+  per_device_train_batch_size: 8
   gradient_accumulation_steps: 1
   gradient_checkpointing: no
   group_by_length: yes
-  learning_rate: 9e-5
+  learning_rate: 3e-5
   weight_decay: .01
 
 # schedule + steps
@@ -67,7 +67,7 @@ training_arguments:
 # optimizer
   adam_beta1: 0.9
   adam_beta2: 0.999
-  adam_epsilon: 1e-8
+  adam_epsilon: 1e-6
   max_grad_norm: 1.0
   optim: 'adamw_hf'
   adafactor: no
@@ -103,7 +103,7 @@ training_arguments:
   evaluation_strategy: "epoch"
   eval_steps: 20
   eval_delay: 0
-  per_device_eval_batch_size: 8
+  per_device_eval_batch_size: 16
   do_predict: no
   
 # hub
