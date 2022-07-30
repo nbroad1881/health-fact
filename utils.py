@@ -168,8 +168,12 @@ def reinit_model_weights(model, n_layers, config):
         "deberta-v2": "deberta",
         "bart": "model",
     }
+    
+    if config.lstm:
+        backbone_name = "transformer"
+    else:
 
-    backbone_name = backbones.get(config.model_type, config.model_type)
+        backbone_name = backbones.get(config.model_type, config.model_type)
 
     backbone = getattr(model, backbone_name)
     if config.model_type == "bart":
@@ -186,11 +190,13 @@ def reinit_model_weights(model, n_layers, config):
             reinit_layers(encoder_layers, n_layers, std)
 
     if config.model_type == "bart":
-        output = model.classification_head
+        output = [model.classification_head]
     else:
-        output = model.classifier
+        output = [model.classifier]
+        if config.lstm:
+            output.append(model.bilstm)
 
-    reinit_modules([output], std)
+    reinit_modules(output, std)
 
 
 def reinit_layers(layers, n_layers, std):

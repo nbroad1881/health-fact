@@ -49,6 +49,11 @@ class BERTLSTM(PreTrainedModel):
         # by subtracting the max, the doc_ids now are indexes
         # into sequence_output
         doc_ids = doc_ids - doc_ids.min()
+        true_labels = torch.zeros(
+            size=(doc_ids.max().item()+1, 1), 
+            dtype=torch.long,
+            device=input_ids.device
+        )
         for id_ in range(0, doc_ids.max().item() + 1):
 
             mask = doc_ids == id_
@@ -56,15 +61,16 @@ class BERTLSTM(PreTrainedModel):
 
             # stick the CLS embeddings into a sequence for each doc
             lstm_input[id_, :seq_len, :] = sequence_output[mask, 0, :]
+            true_labels[id_] = labels[mask].unique()
 
         lstm_output, hc = self.bilstm(lstm_input)
 
-        logits = self.classifier(lstm_output)
+        logits = self.classifier(lstm_output).mean(dim=1)
 
         loss = None
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, self.config.num_labels), labels.view(-1))
+            loss = loss_fct(logits.view(-1, self.config.num_labels), true_labels.view(-1))
 
         return SequenceClassificationOutput(
             loss=loss,
