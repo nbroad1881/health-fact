@@ -25,6 +25,11 @@ class BERTLSTM(PreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, input_ids=None, attention_mask=None, doc_ids=None, labels=None):
+        """
+        This expects a few different documents. The doc_ids indicate which document each sequence
+        comes from. 
+        There is one label for each document.
+        """
 
         sequence_output = self.transformer(
             input_ids=input_ids,
@@ -77,3 +82,47 @@ class SequenceClassificationOutput(ModelOutput):
 
     loss: torch.FloatTensor = None
     logits: torch.FloatTensor = None
+
+
+class BERTLSTM2(PreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.config = config
+
+        self.transformer = AutoModel.from_config(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.bilstm = nn.LSTM(
+            config.hidden_size,
+            (config.hidden_size) // 2,
+            dropout=config.hidden_dropout_prob,
+            batch_first=True,
+            bidirectional=True,
+        )
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+
+    def forward(self, input_ids=None, attention_mask=None, label=None):
+        """
+        This expects a single document and a single label.
+        """
+
+        sequence_output = self.transformer(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+        )[0]
+
+        sequence_output = self.dropout(sequence_output)
+
+        lstm_output, hc = self.bilstm(sequence_output)
+
+        logits = self.classifier(lstm_output)
+
+        loss = None
+        if label is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.config.num_labels), label.view(-1))
+
+        return SequenceClassificationOutput(
+            loss=loss,
+            logits=logits,
+        )
