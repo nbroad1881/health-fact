@@ -23,19 +23,40 @@ class DataModule:
 
     def prepare_dataset(self):
 
-        def tokenize(example):
-            tokenized =  self.tokenizer(
-                example["claim"],
-                example["main_text"],
-                padding=False,
-                truncation="only_second",
-                max_length=self.cfg["max_seq_length"],
-            )
-            
-            tokenized["labels"] = example["label"]
-            return tokenized
+        def tokenize(examples, indices):
 
+            tokenized =  self.tokenizer(
+                examples["claim"],
+                examples["main_text"],
+                padding=False,
+                truncation=self.cfg["truncation"],
+                stride=self.cfg["stride"],
+                max_length=self.cfg["max_seq_length"],
+                return_overflowing_tokens=self.cfg["stride"] is not None,
+            )
+
+            if self.cfg["stride"]:
+                labels = []
+                idxs = []
+
+                for o in tokenized["overflow_to_sample_mapping"]:
+                    idxs.append(indices[o])
+                    labels.append(examples["label"][o])
+
+                tokenized["idx"] = idxs
+                tokenized["labels"] = labels
+            else:
+                tokenized["labels"] = examples["label"]
+                
+
+            return tokenized
+        
+        
         cols = self.raw_dataset["train"].column_names
         self.tokenized_dataset = self.raw_dataset.map(
-            tokenize, batched=False, num_proc=self.cfg["num_proc"], remove_columns=cols
+            tokenize, 
+            batched=True, 
+            num_proc=self.cfg["num_proc"], 
+            remove_columns=cols, 
+            with_indices=True
         )
