@@ -1,0 +1,6 @@
+dataset_name: health_fact
+dataset_config_name: null
+max_seq_length: 512
+truncation: yes
+# set to small number for debugging, -1 for all rows
+n_rows: -1  

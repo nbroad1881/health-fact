@@ -1,0 +1,13 @@
+# Default configuration
+
+defaults:
+  - data: default
+  - training_arguments: default
+  - model: default
+  - _self_ # attributes in this file will override defaults
+
+
+model_name_or_path:  "uw-madison/yoso-4096"
+max_seq_length: 2048
+num_proc: 7
+metric_for_best_model: "eval_micro_f1"

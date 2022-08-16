@@ -1,0 +1,9 @@
+log_artifact: no
+experiment_name: 
+tags: 
+  test: yes
+  model_type: yoso
+nested_run: 
+run_id: 
+flatten_params: 
+tracking_uri: 
