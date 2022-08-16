@@ -20,11 +20,13 @@ import logging
 import os
 import random
 import sys
-import argparse
 
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 
+import hydra
+from hydra.core.config_store import ConfigStore
+from omegaconf import DictConfig
 import datasets
 import transformers
 from transformers import (
@@ -40,26 +42,34 @@ from transformers.integrations import WandbCallback
 from transformers.trainer_utils import get_last_checkpoint
 
 from data import DataModule
-from utils import set_wandb_env_vars, get_configs, NewWandbCB, reinit_model_weights
+from utils import NewWandbCB, set_wandb_env_vars
+from config import (
+    ModelConfig,
+    DataConfig,
+    TrainingArgumentsConfig,
+    MlflowConfig,
+    WandbConfig,
+)
 
 logger = logging.getLogger(__name__)
 
+cs = ConfigStore.instance()
+cs.store(name="data", node=DataConfig)
+cs.store(name="model", node=ModelConfig)
+cs.store(name="training_args", node=TrainingArgumentsConfig)
+cs.store(name="mlflow", node=MlflowConfig)
+cs.store(name="wandb", node=WandbConfig)
 
-def get_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", type=str)
 
-    return parser
+@hydra.main(version_base=None, config_path="conf", config_file="config")
+def main(cfg: DictConfig) -> None:
 
-def main():
-
-    parser = get_parser()
-    args = parser.parse_args()
-
-    cfg, train_args = get_configs(args.config_file)
-    set_wandb_env_vars(cfg)
+    train_args = cfg.pop("training_arguments")
 
     training_args = TrainingArguments(**train_args)
+
+    if "wandb" in training_args.report_to:
+        set_wandb_env_vars(cfg)
 
     # Setup logging
     logging.basicConfig(
@@ -110,38 +120,31 @@ def main():
 
     data_module.prepare_dataset()
 
-    tokenized_ds = data_module.tokenized_dataset
-
-    id2labels = {
-        0: "false",
-        1: "mixture",
-        2: "true",
-        3: "unproven",
-    }
-
+    id2label = data_module.id2labels
+    label2id = data_module.labels2id
     config = AutoConfig.from_pretrained(
-        cfg["model_name_or_path"],
-        num_labels=len(id2labels),
+        cfg.model.model_name_or_path,
+        num_labels=len(id2label),
+        id2label=id2label,
+        label2id=label2id,
         finetuning_task="text-classification",
     )
-    
-    config.update({
-        "block_size": cfg.get("block_size", 64),
-        "num_random_blocks": cfg.get("num_random_blocks", 3),
-    })
 
     model = AutoModelForSequenceClassification.from_pretrained(
-        cfg["model_name_or_path"],
+        cfg.model.model_name_or_path,
         config=config,
+        revision=cfg.model.model_revision,
+        use_auth_token=cfg.model.use_auth_token,
     )
 
-    reinit_model_weights(model, cfg.get("reinit_layers", 0), config)
+    train_dataset = data_module.get_train_dataset()
+    eval_dataset = data_module.get_eval_dataset() if training_args.do_eval else None
 
     # Log a few random samples from the training set:
     if training_args.do_train:
-        for index in random.sample(range(len(tokenized_ds["train"])), 3):
+        for index in random.sample(range(len(train_dataset)), 3):
             logger.info(
-                f"Sample {index} of the training set: {tokenized_ds['train'][index]}."
+                f"Sample {index} of the training set: {train_dataset[index]}."
             )
 
     def compute_metrics(p: EvalPrediction):
@@ -155,23 +158,29 @@ def main():
         metrics = {
             "micro_f1": micro_f1,
             "macro_f1": macro_f1,
-            **{f"{id2labels[i]}_f1": f1s[i] for i in range(len(f1s))},
+            **{f"{id2label[i]}_f1": f1s[i] for i in range(len(f1s))},
         }
 
         return metrics
 
-    data_collator = DataCollatorWithPadding(data_module.tokenizer, pad_to_multiple_of=cfg["pad_multiple"])
+    data_collator = DataCollatorWithPadding(
+        data_module.tokenizer, pad_to_multiple_of=cfg.pad_multiple
+    )
+
+    callbacks = []
+    if "wandb" in training_args.report_to:
+        callbacks.append(NewWandbCB(cfg))
 
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=tokenized_ds["train"],
-        eval_dataset=tokenized_ds["validation"],
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
         tokenizer=data_module.tokenizer,
         data_collator=data_collator,
-        callbacks=[NewWandbCB(cfg)],
+        callbacks=callbacks,
     )
 
     trainer.remove_callback(WandbCallback)
@@ -185,7 +194,7 @@ def main():
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         metrics = train_result.metrics
-        metrics["train_samples"] = len(tokenized_ds["train"])
+        metrics["train_samples"] = len(train_dataset)
 
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
@@ -194,10 +203,11 @@ def main():
         trainer.save_state()
 
     if training_args.do_predict:
+        test_ds = data_module.get_test_dataset()
         logger.info("*** Predict ***")
 
-        metrics = trainer.predict(tokenized_ds["test"]).metrics
-        metrics["eval_samples"] = len(tokenized_ds["test"])
+        metrics = trainer.predict(test_ds).metrics
+        metrics["eval_samples"] = len(test_ds)
 
         trainer.log_metrics("test", metrics)
         trainer.save_metrics("test", metrics)
