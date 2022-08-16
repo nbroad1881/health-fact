@@ -1,4 +1,5 @@
-git+https://github.com/huggingface/transformers.git
-git+https://github.com/huggingface/datasets.git
+transformers
+datasets
 sentencepiece
 wandb
+hydra-core
