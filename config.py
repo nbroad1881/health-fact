@@ -118,7 +118,7 @@ class TrainingArgumentsConfig:
     fsdp: str
     fsdp_min_num_params: int
     fsdp_transformer_layer_cls_to_wrap: str
-    deepspeed: Union[Dict, str]
+    deepspeed: str
     label_smoothing_factor: float
     length_column_name: str
     ddp_find_unused_parameters: bool
