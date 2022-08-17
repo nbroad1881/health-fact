@@ -1,4 +1,4 @@
-from typing import Dict, List, Bool
+from typing import Dict, List
 from dataclasses import dataclass
 
 import datasets
@@ -18,9 +18,8 @@ class DataModule:
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.cfg.model.model_name_or_path,
         )
-
-        self.label2id = self.cfg.data.label2id
-        self.id2label = {value: key for key, value in self.label2id.items()}
+        self.label2id = {l:i for i, l in enumerate(self.cfg.data.labels)}
+        self.id2label = {i:l for l, i in self.label2id.items()}
 
     def prepare_dataset(self) -> None:
         """
