@@ -78,7 +78,7 @@ eval_accumulation_steps: null
 use_ipex: no
 save_on_each_node: no
 no_cuda: no
-use_mps_device: no
+# use_mps_device: no
 data_seed: null
 local_rank: -1
 xpu_backend: null

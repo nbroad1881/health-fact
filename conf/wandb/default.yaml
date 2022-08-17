@@ -1,7 +1,7 @@
 project: health-fact
 entity: nbroad
 group: ''
-tags: []
+tags: null
 notes: >
   No notes
 job_type: train

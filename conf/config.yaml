@@ -4,10 +4,35 @@ defaults:
   - data: default
   - training_arguments: default
   - model: default
+  - mlflow: default
   - _self_ # attributes in this file will override defaults
 
 
-model_name_or_path:  "uw-madison/yoso-4096"
-max_seq_length: 2048
+model:
+  model_name_or_path:  "allenai/longformer-base-4096"
+  
+data:
+  max_seq_length: 2048
+  pad_multiple: 512
+  
+training_arguments:
+  do_train: yes
+  do_eval: yes
+  
+  logging_steps: 100
+  evaluation_strategy: "epoch"
+  fp16: yes
+  group_by_length: yes
+  
+  
+  learning_rate: 1e-5
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  metric_for_best_model: "eval_micro_f1"
+  greater_is_better: yes
+  report_to: "mlflow"
+  log_level: "warning"
+  save_strategy: "epoch"
+  save_total_limit: 2
+  
 num_proc: 7
-metric_for_best_model: "eval_micro_f1"
