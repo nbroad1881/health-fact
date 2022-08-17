@@ -27,7 +27,7 @@ class DataModule:
 
         If debugging, take small subset of the full dataset.
         """
-        self.raw_dataset = load_dataset("health_fact")
+        self.raw_dataset = load_dataset(self.cfg.data.dataset_name, self.cfg.data.dataset_config_name)
         self.raw_dataset = self.raw_dataset.filter(lambda x: x["label"] != -1)
 
         if self.cfg.data.n_rows > 0:
