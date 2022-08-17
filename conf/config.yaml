@@ -35,4 +35,7 @@ training_arguments:
   save_strategy: "epoch"
   save_total_limit: 2
   
+# general configuration
 num_proc: 7
+task: text-classification
+language: en
