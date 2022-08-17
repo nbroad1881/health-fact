@@ -42,34 +42,25 @@ from transformers.integrations import WandbCallback
 from transformers.trainer_utils import get_last_checkpoint
 
 from data import DataModule
-from utils import NewWandbCB, set_wandb_env_vars
-from config import (
-    ModelConfig,
-    DataConfig,
-    TrainingArgumentsConfig,
-    MlflowConfig,
-    WandbConfig,
-)
+from utils import NewWandbCB, set_wandb_env_vars, set_mlflow_env_vars
+
 
 logger = logging.getLogger(__name__)
 
-cs = ConfigStore.instance()
-cs.store(name="data", node=DataConfig)
-cs.store(name="model", node=ModelConfig)
-cs.store(name="training_args", node=TrainingArgumentsConfig)
-cs.store(name="mlflow", node=MlflowConfig)
-cs.store(name="wandb", node=WandbConfig)
 
-
-@hydra.main(version_base=None, config_path="conf", config_file="config")
+@hydra.main(config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
 
-    train_args = cfg.pop("training_arguments")
+    train_args = dict(cfg.training_arguments)
+    del cfg.training_arguments
+    
 
     training_args = TrainingArguments(**train_args)
 
     if "wandb" in training_args.report_to:
         set_wandb_env_vars(cfg)
+    if "mlflow" in training_args.report_to:
+        set_mlflow_env_vars(cfg)
 
     # Setup logging
     logging.basicConfig(
@@ -120,8 +111,10 @@ def main(cfg: DictConfig) -> None:
 
     data_module.prepare_dataset()
 
-    id2label = data_module.id2labels
-    label2id = data_module.labels2id
+    id2label = data_module.id2label
+    label2id = data_module.label2id
+
+    
     config = AutoConfig.from_pretrained(
         cfg.model.model_name_or_path,
         num_labels=len(id2label),
@@ -164,12 +157,12 @@ def main(cfg: DictConfig) -> None:
         return metrics
 
     data_collator = DataCollatorWithPadding(
-        data_module.tokenizer, pad_to_multiple_of=cfg.pad_multiple
+        data_module.tokenizer, pad_to_multiple_of=cfg.data.pad_multiple
     )
 
     callbacks = []
     if "wandb" in training_args.report_to:
-        callbacks.append(NewWandbCB(cfg))
+        callbacks.append(NewWandbCB(dict(cfg)))
 
     # Initialize our Trainer
     trainer = Trainer(
@@ -213,7 +206,7 @@ def main(cfg: DictConfig) -> None:
         trainer.save_metrics("test", metrics)
 
     kwargs = {
-        "finetuned_from": cfg["model_name_or_path"],
+        "finetuned_from": cfg.model.model_name_or_path,
         "tasks": "text-classification",
         "language": "en",
         "dataset_tags": "health_fact",
