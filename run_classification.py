@@ -13,8 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Finetuning the library models for sequence classification on GLUE."""
-# You can also adapt this script on your own text classification task. Pointers for this are left as comments.
+""" Finetuning the library models for sequence classification"""
 
 import logging
 import os
@@ -25,7 +24,6 @@ import numpy as np
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 
 import hydra
-from hydra.core.config_store import ConfigStore
 from omegaconf import DictConfig
 import datasets
 import transformers
@@ -42,7 +40,7 @@ from transformers.integrations import WandbCallback
 from transformers.trainer_utils import get_last_checkpoint
 
 from data import DataModule
-from utils import NewWandbCB, set_wandb_env_vars, set_mlflow_env_vars
+from utils import WandbCallbackV2, set_wandb_env_vars, set_mlflow_env_vars
 
 
 logger = logging.getLogger(__name__)
@@ -109,12 +107,14 @@ def main(cfg: DictConfig) -> None:
 
     data_module = DataModule(cfg)
 
-    data_module.prepare_dataset()
+    # If running distributed, this will do something on the main process, while
+    #    blocking replicas, and when it's finished, it will release the replicas.
+    with training_args.main_process_first(desc="Dataset loading and tokenization"):
+        data_module.prepare_dataset()
 
     id2label = data_module.id2label
     label2id = data_module.label2id
 
-    
     config = AutoConfig.from_pretrained(
         cfg.model.model_name_or_path,
         num_labels=len(id2label),
@@ -148,10 +148,15 @@ def main(cfg: DictConfig) -> None:
         micro_f1 = f1_score(p.label_ids, preds, average="micro")
         macro_f1 = f1_score(p.label_ids, preds, average="macro")
 
+        # f1 and accuracy are the same when doing micro-f1
+        # accuracy is more recognizable
+        accuracies = {f"{id2label[i]}_accuracy": f1s[i] for i in range(len(f1s))}
+        accuracies["macro_accuracy"] = sum(accuracies.values())/len(accuracies.values())
+
         metrics = {
             "micro_f1": micro_f1,
             "macro_f1": macro_f1,
-            **{f"{id2label[i]}_f1": f1s[i] for i in range(len(f1s))},
+            **accuracies,
         }
 
         return metrics
@@ -162,7 +167,9 @@ def main(cfg: DictConfig) -> None:
 
     callbacks = []
     if "wandb" in training_args.report_to:
-        callbacks.append(NewWandbCB(dict(cfg)))
+        callbacks.append(WandbCallbackV2(dict(cfg)))
+
+    # mlflow callback will automatically be applied
 
     # Initialize our Trainer
     trainer = Trainer(
@@ -205,11 +212,12 @@ def main(cfg: DictConfig) -> None:
         trainer.log_metrics("test", metrics)
         trainer.save_metrics("test", metrics)
 
+    # Will create nice README.md file even if not pushing to hub
     kwargs = {
         "finetuned_from": cfg.model.model_name_or_path,
-        "tasks": "text-classification",
-        "language": "en",
-        "dataset_tags": "health_fact",
+        "tasks": cfg.task,
+        "language": cfg.language,
+        "dataset_tags": cfg.data.dataset_name,
     }
 
     if training_args.push_to_hub:
