@@ -71,6 +71,9 @@ jit_mode_eval: no
 hub_model_id: null
 hub_token: null
 
+# reporting
+report_to: null
+
 # rarely used
 debug: ''
 prediction_loss_only: no
